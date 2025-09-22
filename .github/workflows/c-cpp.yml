@@ -1,23 +1,59 @@
-name: C/C++ CI
+name: C++ TCP Chat CI
 
 on:
   push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+  workflow_dispatch:   # Allows manual trigger from GitHub UI
 
 jobs:
-  build:
-
+  build-and-test:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
-    - name: configure
-      run: ./configure
-    - name: make
-      run: make
-    - name: make check
-      run: make check
-    - name: make distcheck
-      run: make distcheck
+      # Checkout repo
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Install dependencies
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y g++
+
+      # Build server
+      - name: Build TCP Server
+        run: g++ -o tcpServer tcpServer.cpp -lpthread
+
+      # Build client
+      - name: Build TCP Client
+        run: g++ -o tcpClient tcpClient.cpp
+
+      # Run basic test
+      - name: Run integration test
+        run: |
+          # Start server in background
+          ./tcpServer > server.log 2>&1 &
+          SERVER_PID=$!
+          sleep 2  # wait for server to start
+
+          # Send "hello" to server via client
+          # (simulate typing "hello" then "exit")
+          printf "hello\nexit\n" | ./tcpClient TestClient 54550 > client.log 2>&1 || true
+
+          # Kill server process
+          kill $SERVER_PID || true
+          sleep 1
+
+          echo "==== SERVER LOG ===="
+          cat server.log
+          echo "==== CLIENT LOG ===="
+          cat client.log
+
+          # Check that "hello" was echoed back
+          if grep -q "hello" client.log; then
+            echo "✅ Test passed: client received echo from server"
+          else
+            echo "❌ Test failed: client did not receive echo"
+            exit 1
+          fi
+
