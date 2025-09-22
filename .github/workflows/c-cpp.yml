@@ -24,15 +24,24 @@ jobs:
       - name: Build TCP Client
         run: g++ -o tcpClient tcpClient.cpp
 
-      - name: Run integration test
+      - name: Run integration test with two clients
         run: |
           # Start server in background
           ./tcpServer > server.log 2>&1 &
           SERVER_PID=$!
           sleep 2
 
-          # Simulate a conversation
-          printf "hello\nexit\n" | ./tcpClient TestClient 54550 > client.log 2>&1 || true
+          # Start first client (Alice)
+          printf "hello from Alice\nexit\n" | ./tcpClient Alice 54550 > client1.log 2>&1 &
+          CLIENT1_PID=$!
+
+          # Start second client (Bob)
+          printf "hello from Bob\nexit\n" | ./tcpClient Bob 54550 > client2.log 2>&1 &
+          CLIENT2_PID=$!
+
+          # Wait for both clients to finish
+          wait $CLIENT1_PID
+          wait $CLIENT2_PID
 
           # Stop server
           kill $SERVER_PID || true
@@ -40,13 +49,16 @@ jobs:
 
           echo "==== SERVER LOG ===="
           cat server.log
-          echo "==== CLIENT LOG ===="
-          cat client.log
+          echo "==== CLIENT 1 LOG (Alice) ===="
+          cat client1.log
+          echo "==== CLIENT 2 LOG (Bob) ===="
+          cat client2.log
 
-          # Check if "From Server:" line contains "hello"
-          if grep -q "From Server: hello" client.log; then
-            echo "✅ Test passed: client received echo from server"
+          # Verify both clients got echoes back
+          if grep -q "From Server: hello from Alice" client1.log && \
+             grep -q "From Server: hello from Bob" client2.log; then
+            echo "✅ Test passed: both clients received echoes"
           else
-            echo "❌ Test failed: client did not receive expected echo"
+            echo "❌ Test failed: one or both clients did not receive echo"
             exit 1
           fi
