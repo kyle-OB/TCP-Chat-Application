@@ -15,7 +15,7 @@
 
 void openChat(int sockfd, char* name) {
     char buff[MAX];
-    int n;
+    int n, nbytes;
 
     for (;;) {
         bzero(buff, sizeof(buff));
@@ -26,12 +26,18 @@ void openChat(int sockfd, char* name) {
         while ((buff[n++] = getchar()) != '\n')
             ;
 
-        // Send to server
-        write(sockfd, buff, sizeof(buff));
+        // Send to server (only actual length)
+        write(sockfd, buff, strlen(buff));
 
         // Receive from server
         bzero(buff, sizeof(buff));
-        read(sockfd, buff, sizeof(buff));
+        nbytes = read(sockfd, buff, sizeof(buff) - 1); // leave space for '\0'
+        if (nbytes <= 0) {
+            printf("Server disconnected.\n");
+            break;
+        }
+        buff[nbytes] = '\0'; // ensure null termination
+
         printf("From Server: %s", buff);
 
         // Check for exit
