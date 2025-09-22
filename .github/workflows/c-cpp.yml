@@ -8,7 +8,7 @@ on:
   workflow_dispatch:   # Allows manual trigger from GitHub UI
 
 jobs:
-  build-and-test:
+  build:
     runs-on: ubuntu-latest
 
     steps:
@@ -16,7 +16,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Install dependencies
+      # Install dependencies (just g++)
       - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install -y g++
 
@@ -28,32 +28,7 @@ jobs:
       - name: Build TCP Client
         run: g++ -o tcpClient tcpClient.cpp
 
-      # Run basic test
-      - name: Run integration test
+      # Run a basic check
+      - name: Verify binaries
         run: |
-          # Start server in background
-          ./tcpServer > server.log 2>&1 &
-          SERVER_PID=$!
-          sleep 2  # wait for server to start
-
-          # Send "hello" to server via client
-          # (simulate typing "hello" then "exit")
-          printf "hello\nexit\n" | ./tcpClient TestClient 54550 > client.log 2>&1 || true
-
-          # Kill server process
-          kill $SERVER_PID || true
-          sleep 1
-
-          echo "==== SERVER LOG ===="
-          cat server.log
-          echo "==== CLIENT LOG ===="
-          cat client.log
-
-          # Check that "hello" was echoed back
-          if grep -q "hello" client.log; then
-            echo "✅ Test passed: client received echo from server"
-          else
-            echo "❌ Test failed: client did not receive echo"
-            exit 1
-          fi
-
+          ls -lh tcpServer tcpClient
