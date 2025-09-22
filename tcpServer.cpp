@@ -16,21 +16,24 @@
 #define PORT 54550
 #define SA struct sockaddr
 
-// Mutex for synchronizing shared resources (if needed in future)
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-
 // Function designed for chat between client and server
 void* handleClient(void* arg) {
     int connfd = *((int*)arg);
     free(arg);
 
     char buff[MAX];
+    int nbytes;
 
     for (;;) {
         bzero(buff, MAX);
 
         // Read message from client
-        read(connfd, buff, sizeof(buff));
+        nbytes = read(connfd, buff, sizeof(buff));
+        if (nbytes <= 0) {
+            printf("Client disconnected unexpectedly.\n");
+            break;
+        }
+
         printf("From client: %s\n", buff);
 
         // Check if client wants to exit
@@ -39,8 +42,8 @@ void* handleClient(void* arg) {
             break;
         }
 
-        // Echo message back to client
-        write(connfd, buff, sizeof(buff));
+        // Echo message back (only the valid part)
+        write(connfd, buff, nbytes);
     }
 
     close(connfd);
@@ -108,3 +111,4 @@ int main(int argc, char* argv[]) {
     close(sockfd);
     return 0;
 }
+
